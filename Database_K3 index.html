@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Informasi Insiden K3 - Google Drive Edition</title>
+    
+    <!-- Bootstrap 5, FontAwesome & Google Fonts -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Google Identity Services Library -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <!-- Export Libraries (Excel & PDF) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #0f172a;
+            --accent-color: #2563eb;
+            --bg-color: #f1f5f9;
+            --card-radius: 12px;
+        }
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: #334155;
+        }
+        .navbar-custom {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            border-bottom: 1px solid #334155;
+        }
+        .card-custom {
+            border: none;
+            border-radius: var(--card-radius);
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+            background: #ffffff;
+        }
+        .stat-card {
+            border: none;
+            border-radius: var(--card-radius);
+            transition: transform 0.2s ease;
+        }
+        .stat-card:hover { transform: translateY(-2px); }
+        .section-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--accent-color);
+            background: #eff6ff;
+            padding: 6px 12px;
+            border-radius: 20px;
+            margin-bottom: 16px;
+        }
+        .table-modern {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        .table-modern th {
+            background-color: #f8fafc;
+            color: #475569;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e2e8f0;
+            padding: 14px 16px;
+        }
+        .table-modern td {
+            padding: 16px;
+            vertical-align: top;
+            font-size: 0.875rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .drive-status-box {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px 18px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+        }
+        .badge-status {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 6px;
+        }
+        .img-thumbnail-custom {
+            width: 70px;
+            height: 70px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease;
+        }
+        .img-thumbnail-custom:hover {
+            transform: scale(1.05);
+            border-color: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <!-- NAVIGASI UTAMA -->
+    <nav class="navbar navbar-dark navbar-custom sticky-top py-3 shadow-sm">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold fs-5" href="#">
+                <i class="fa-solid fa-shield-halved text-warning fs-4"></i>
+                <span>HSE INCIDENT SYSTEM</span>
+            </a>
+            
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-primary rounded-pill px-3" id="btnViewForm" onclick="switchTab('form')">
+                    <i class="fa-solid fa-pen-to-square me-1"></i> Form Laporan
+                </button>
+                <button class="btn btn-sm btn-outline-light rounded-pill px-3" id="btnViewRekap" onclick="switchTab('rekap')">
+                    <i class="fa-solid fa-chart-pie me-1"></i> Dashboard & Data
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <!-- STATUS PENYIMPANAN GOOGLE DRIVE -->
+        <div class="drive-status-box mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-3">
+                <i class="fa-brands fa-google-drive fs-2 text-success"></i>
+                <div>
+                    <div class="fw-bold small">Penyimpanan Foto Google Drive</div>
+                    <div class="text-muted" id="driveAccountInfo" style="font-size: 0.8rem;">Status: Belum Terhubung</div>
+                </div>
+            </div>
+            <button class="btn btn-sm btn-outline-primary fw-semibold rounded-pill px-3" id="btnAuthDrive" onclick="handleAuthClick()">
+                <i class="fa-solid fa-key me-1"></i> Hubungkan Google Drive
+            </button>
+        </div>
+
+        <!-- TAB 1: FORM INPUT LAPORAN -->
+        <div id="viewForm">
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <div class="card card-custom p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+                            <div>
+                                <h5 class="fw-bold m-0"><i class="fa-solid fa-file-circle-plus text-primary me-2"></i>Laporan Insiden K3</h5>
+                                <p class="text-muted small m-0">Inputkan laporan insiden</p>
+                            </div>
+                            <span class="badge bg-primary-subtle text-primary fw-bold px-3 py-2 rounded-pill">
+                                Total: <span id="countBadge">0</span> Insiden
+                            </span>
+                        </div>
+                        <form id="k3Form">
+                            <!-- Bagian 1: Waktu & Lokasi -->
+                            <div class="section-tag"><i class="fa-solid fa-location-dot"></i> 1. Informasi Lokasi & Waktu</div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-semibold">Tanggal</label>
+                                    <input type="date" id="tanggal" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-semibold">Jam Kejadian</label>
+                                    <input type="time" id="jam" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-semibold">Lokasi Area</label>
+                                    <input type="text" id="lokasi" class="form-control form-control-sm" placeholder="Contoh: Pit A / Workshop 2" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-semibold">Cuaca</label>
+                                    <select id="cuaca" class="form-select form-select-sm" required>
+                                        <option value="" selected disabled>-- Pilih Cuaca --</option>
+                                        <option value="Cerah">Cerah</option>
+                                        <option value="Berawan">Berawan</option>
+                                        <option value="Hujan Gerimis">Hujan Gerimis</option>
+                                        <option value="Hujan Deras">Hujan Deras</option>
+                                        <option value="Malam / Gelap">Malam / Gelap</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <!-- Bagian 2: Kronologi & Penyebab -->
+                            <div class="section-tag"><i class="fa-solid fa-align-left"></i> 2. Alur & Penyebab</div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Kronologi Kejadian</label>
+                                    <textarea id="kronologi" class="form-control form-control-sm" rows="3" placeholder="Tulis alur kejadian secara runtut..." required></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Dugaan Penyebab</label>
+                                    <textarea id="dugaanPenyebab" class="form-control form-control-sm" rows="3" placeholder="Identifikasi dugaan penyebab utama..." required></textarea>
+                                </div>
+                            </div>
+                            <!-- Bagian 3: Dampak Korban -->
+                            <div class="section-tag"><i class="fa-solid fa-user-injured"></i> 3. Dampak Korban Jiwa</div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-semibold">Kategori Korban</label>
+                                    <select id="kondisiKorban" class="form-select form-select-sm" required onchange="handleKorbanChange()">
+                                        <option value="" selected disabled>-- Pilih Kategori --</option>
+                                        <option value="Nihil">Nihil (Tidak Ada Korban)</option>
+                                        <option value="First Aid">First Aid (Pertolongan Pertama)</option>
+                                        <option value="Medical Treatment">Medical Treatment</option>
+                                        <option value="Fatality">Fatality (Meninggal)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-semibold">Nama Korban</label>
+                                    <input type="text" id="namaKorban" class="form-control form-control-sm" placeholder="Nama korban" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-semibold">Deskripsi Luka / Cidera</label>
+                                    <input type="text" id="deskripsiLuka" class="form-control form-control-sm" placeholder="Detail luka/cidera" required>
+                                </div>
+                            </div>
+                            <!-- Bagian 4: Kerusakan & Dokumentasi -->
+                            <div class="section-tag"><i class="fa-solid fa-building-circle-exclamation"></i> 4. Kerusakan & Dokumentasi</div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-semibold">Kerusakan Properti/Alat</label>
+                                    <input type="text" id="kerusakanProperti" class="form-control form-control-sm" placeholder="kerusakan fasilitas/alat" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-semibold">Estimasi Kerugian (Rp)</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">Rp</span>
+                                        <input type="text" id="kerugianRp" class="form-control" placeholder="0" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-semibold">Foto Kejadian (Ke Drive)</label>
+                                    <input type="file" id="fotoFile" class="form-control form-control-sm" accept="image/*" required>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label small fw-semibold">Tindak Lanjut & Rencana Pencegahan</label>
+                                    <textarea id="tindakLanjut" class="form-control form-control-sm" rows="2" placeholder="Langkah perbaikan dan pencegahan agar tidak terulang..." required></textarea>
+                                </div>
+                            </div>
+                            <button type="submit" id="btnSubmit" class="btn btn-primary w-100 py-2.5 fw-bold rounded-3 shadow-sm">
+                                <i class="fa-solid fa-cloud-arrow-up me-2"></i> Simpan & Unggah Ke Google Drive
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: REKAPITULASI DATA & DASHBOARD -->
+        <div id="viewRekap" style="display: none;">
+            <!-- PANEL FILTER PERIODE -->
+            <div class="card card-custom p-3 mb-4">
+                <div class="row align-items-center g-3">
+                    <div class="col-md-4">
+                        <h6 class="fw-bold m-0"><i class="fa-solid fa-filter text-primary me-2"></i>Filter Periode Laporan</h6>
+                    </div>
+                    <div class="col-md-4">
+                        <select id="filterBulan" class="form-select form-select-sm" onchange="renderDatabase()">
+                            <option value="ALL">-- Semua Bulan --</option>
+                            <option value="01">Januari</option>
+                            <option value="02">Februari</option>
+                            <option value="03">Maret</option>
+                            <option value="04">April</option>
+                            <option value="05">Mei</option>
+                            <option value="06">Juni</option>
+                            <option value="07">Juli</option>
+                            <option value="08">Agustus</option>
+                            <option value="09">September</option>
+                            <option value="10">Oktober</option>
+                            <option value="11">November</option>
+                            <option value="12">Desember</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <select id="filterTahun" class="form-select form-select-sm" onchange="renderDatabase()">
+                            <!-- Tahun diisi otomatis via JS -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RINGKASAN STATISTIK -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <div class="card stat-card p-3 bg-white shadow-sm border-start border-4 border-primary">
+                        <div class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem;">Total Kejadian Terdata (Filter)</div>
+                        <div class="fs-2 fw-bold text-dark mt-1" id="totalIncidents">0</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card stat-card p-3 bg-white shadow-sm border-start border-4 border-danger">
+                        <div class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem;">Total Kerugian Material (Filter)</div>
+                        <div class="fs-2 fw-bold text-danger mt-1" id="totalKerugian">Rp 0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABEL DATABASE -->
+            <div class="card card-custom">
+                <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h6 class="fw-bold m-0"><i class="fa-solid fa-database me-2 text-primary"></i>Database Kejadian K3</h6>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-success fw-semibold rounded-pill px-3" onclick="exportToExcel()">
+                            <i class="fa-solid fa-file-excel me-1"></i> Excel
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger fw-semibold rounded-pill px-3" onclick="exportToPDF()">
+                            <i class="fa-solid fa-file-pdf me-1"></i> PDF
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="clearDatabase()">
+                            <i class="fa-solid fa-trash me-1"></i> Reset
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-modern align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-center" style="width: 50px;">No</th>
+                                    <th>Waktu & Lokasi</th>
+                                    <th>Kronologi & Penyebab</th>
+                                    <th>Korban Jiwa</th>
+                                    <th>Properti & Kerugian</th>
+                                    <th>Pencegahan</th>
+                                    <th class="text-center">Dokumentasi Foto</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL POPUP PREVIEW FOTO GALERI -->
+    <div class="modal fade" id="imageViewerModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-dark border-0">
+                <div class="modal-header border-0 py-2">
+                    <span class="text-white-50 small"><i class="fa-solid fa-image me-1"></i> Detail Foto Dokumen K3</span>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center p-2">
+                    <img id="modalImagePreview" src="" class="img-fluid rounded" style="max-height: 80vh; object-fit: contain;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS (Diperlukan untuk modal galeri) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- SCRIPT UTAMA -->
+    <script>
+        const CLIENT_ID = '237994337885-jo1fp9vhniaju278du3eslb4tgs2b0ij.apps.googleusercontent.com'; 
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        let tokenClient;
+        let accessToken = null;
+        let dbK3 = getStoredData();
+        let filteredDataGlobal = [];
+
+        function getStoredData() {
+            try {
+                const data = localStorage.getItem("DB_K3_DRIVE_EDITION");
+                return data ? JSON.parse(data) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function initGoogleClient() {
+            if (typeof google !== 'undefined' && google.accounts && google.accounts.oauth2) {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: SCOPES,
+                    callback: (tokenResponse) => {
+                        if (tokenResponse && tokenResponse.access_token) {
+                            accessToken = tokenResponse.access_token;
+                            document.getElementById("driveAccountInfo").innerHTML = `<span class="text-success fw-semibold"><i class="fa-solid fa-circle-check me-1"></i>Terhubung & Siap Unggah</span>`;
+                            document.getElementById("btnAuthDrive").innerText = "Terhubung";
+                            document.getElementById("btnAuthDrive").classList.replace("btn-outline-primary", "btn-success");
+                        }
+                    },
+                });
+            }
+        }
+
+        function setupYearFilterOptions() {
+            const selectTahun = document.getElementById("filterTahun");
+            selectTahun.innerHTML = '<option value="ALL">-- Semua Tahun --</option>';
+            
+            const currentYear = new Date().getFullYear();
+            const yearsSet = new Set();
+            yearsSet.add(currentYear);
+            dbK3.forEach(item => {
+                if (item.tanggal) {
+                    const y = item.tanggal.split("-")[0];
+                    if (y) yearsSet.add(parseInt(y));
+                }
+            });
+            Array.from(yearsSet).sort((a,b) => b - a).forEach(year => {
+                const opt = document.createElement("option");
+                opt.value = year;
+                opt.textContent = year;
+                selectTahun.appendChild(opt);
+            });
+        }
+
+        window.onload = function() {
+            setTimeout(initGoogleClient, 1000);
+            setupYearFilterOptions();
+            renderDatabase();
+        };
+
+        function handleAuthClick() {
+            if (!tokenClient) initGoogleClient();
+            if (tokenClient) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                alert("Library Google belum siap. Mohon tunggu beberapa detik.");
+            }
+        }
+
+        function handleKorbanChange() {
+            const val = document.getElementById("kondisiKorban").value;
+            if (val === "Nihil") {
+                document.getElementById("namaKorban").value = "Nihil";
+                document.getElementById("deskripsiLuka").value = "Nihil";
+            }
+        }
+
+        document.getElementById("kerugianRp").addEventListener("input", function() {
+            let val = this.value.replace(/\D/g, "");
+            this.value = val ? parseInt(val, 10).toLocaleString("id-ID") : "";
+        });
+
+        function switchTab(tab) {
+            const viewForm = document.getElementById("viewForm");
+            const viewRekap = document.getElementById("viewRekap");
+            const btnForm = document.getElementById("btnViewForm");
+            const btnRekap = document.getElementById("btnViewRekap");
+            if (tab === 'form') {
+                viewForm.style.display = "block";
+                viewRekap.style.display = "none";
+                btnForm.className = "btn btn-sm btn-primary rounded-pill px-3";
+                btnRekap.className = "btn btn-sm btn-outline-light rounded-pill px-3";
+            } else {
+                viewForm.style.display = "none";
+                viewRekap.style.display = "block";
+                btnForm.className = "btn btn-sm btn-outline-light rounded-pill px-3";
+                btnRekap.className = "btn btn-sm btn-primary rounded-pill px-3";
+                setupYearFilterOptions();
+                renderDatabase();
+            }
+        }
+
+        async function uploadFileToDrive(file) {
+            if (!accessToken) {
+                alert("Silakan klik 'Hubungkan Google Drive' terlebih dahulu sebelum menyimpan!");
+                throw new Error("Sesi Google Drive belum aktif");
+            }
+            const metadata = {
+                name: `K3_Incident_${Date.now()}_${file.name}`,
+                mimeType: file.type
+            };
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+            form.append('file', file);
+            const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+                method: 'POST',
+                headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
+                body: form
+            });
+            if (!response.ok) throw new Error("Gagal mengunggah file ke Google Drive.");
+            const data = await response.json();
+            
+            await fetch(`https://www.googleapis.com/drive/v3/files/${data.id}/permissions`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + accessToken,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ role: 'reader', type: 'anyone' })
+            });
+            return { id: data.id, viewLink: data.webViewLink };
+        }
+
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        document.getElementById("k3Form").addEventListener("submit", async function(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById("fotoFile");
+            const file = fileInput.files[0];
+            const btnSubmit = document.getElementById("btnSubmit");
+            if (!file) {
+                alert("Pilih foto terlebih dahulu!");
+                return;
+            }
+            try {
+                btnSubmit.disabled = true;
+                btnSubmit.innerHTML = `<i class="fa-solid fa-spinner fa-spin me-2"></i> Mengunggah Foto...`;
+                const driveData = await uploadFileToDrive(file);
+                const localBase64Photo = await readFileAsBase64(file);
+                const rawRp = document.getElementById("kerugianRp").value.replace(/\D/g, "");
+                const newRecord = {
+                    id: Date.now(),
+                    tanggal: document.getElementById("tanggal").value,
+                    jam: document.getElementById("jam").value,
+                    lokasi: document.getElementById("lokasi").value,
+                    cuaca: document.getElementById("cuaca").value,
+                    kronologi: document.getElementById("kronologi").value,
+                    dugaanPenyebab: document.getElementById("dugaanPenyebab").value,
+                    kondisiKorban: document.getElementById("kondisiKorban").value,
+                    namaKorban: document.getElementById("namaKorban").value,
+                    deskripsiLuka: document.getElementById("deskripsiLuka").value,
+                    kerusakanProperti: document.getElementById("kerusakanProperti").value,
+                    kerugianRp: Number(rawRp) || 0,
+                    tindakLanjut: document.getElementById("tindakLanjut").value,
+                    driveViewLink: driveData.viewLink,
+                    thumbnailBase64: localBase64Photo
+                };
+                dbK3 = getStoredData();
+                dbK3.push(newRecord);
+                localStorage.setItem("DB_K3_DRIVE_EDITION", JSON.stringify(dbK3));
+                document.getElementById("k3Form").reset();
+                alert("Laporan berhasil disimpan dan foto tersimpan di Google Drive!");
+                switchTab('rekap');
+            } catch (err) {
+                console.error(err);
+                alert("Terjadi masalah saat menyimpan data. Pastikan Google Drive sudah terhubung.");
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = `<i class="fa-solid fa-cloud-arrow-up me-2"></i> Simpan & Unggah Ke Google Drive`;
+            }
+        });
+
+        // FUNGSI UNTUK MENAMPILKAN GAMBAR MEMBESAR KETIKA DIKLIK (GALERI)
+        function showGalleryModal(imgSrc) {
+            document.getElementById("modalImagePreview").src = imgSrc;
+            const myModal = new bootstrap.Modal(document.getElementById('imageViewerModal'));
+            myModal.show();
+        }
+
+        function renderDatabase() {
+            dbK3 = getStoredData();
+            const tableBody = document.getElementById("tableBody");
+            tableBody.innerHTML = "";
+            const filterBulan = document.getElementById("filterBulan").value;
+            const filterTahun = document.getElementById("filterTahun").value;
+            filteredDataGlobal = dbK3.filter(item => {
+                if (!item.tanggal) return false;
+                const [y, m, d] = item.tanggal.split("-");
+                const bulanMatch = (filterBulan === "ALL" || m === filterBulan);
+                const tahunMatch = (filterTahun === "ALL" || y === filterTahun);
+                return bulanMatch && tahunMatch;
+            });
+            let totalKerugian = 0;
+            document.getElementById("countBadge").innerText = dbK3.length;
+            document.getElementById("totalIncidents").innerText = filteredDataGlobal.length;
+            if (filteredDataGlobal.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-muted small">Belum ada data insiden K3 pada periode ini.</td></tr>`;
+                document.getElementById("totalKerugian").innerText = "Rp 0";
+                return;
+            }
+            filteredDataGlobal.forEach((item, index) => {
+                totalKerugian += (item.kerugianRp || 0);
+                let formattedDate = escapeHtml(item.tanggal);
+                if (item.tanggal && item.tanggal.includes("-")) {
+                    const p = item.tanggal.split("-");
+                    if (p.length === 3) formattedDate = `${p[2]}/${p[1]}/${p[0]}`;
+                }
+                let badgeClass = "bg-secondary";
+                if(item.kondisiKorban === "Nihil") badgeClass = "bg-success-subtle text-success border border-success";
+                else if(item.kondisiKorban === "First Aid") badgeClass = "bg-warning-subtle text-warning border border-warning";
+                else if(item.kondisiKorban === "Medical Treatment") badgeClass = "bg-danger-subtle text-danger border border-danger";
+                else if(item.kondisiKorban === "Fatality") badgeClass = "bg-danger text-white";
+                
+                const photoThumb = item.thumbnailBase64 || item.driveViewLink;
+                
+                // ELEMEN GAMBAR GALERI (Bisa diklik untuk memperbesar)
+                const imgDisplay = photoThumb 
+                    ? `<div class="d-flex flex-column align-items-center gap-1">
+                         <img src="${photoThumb}" class="img-thumbnail-custom mb-1" style="cursor: pointer;" onclick="showGalleryModal('${photoThumb}')" title="Klik untuk lihat lebih besar">
+                         <a href="${item.driveViewLink}" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:0.7rem;">
+                           <i class="fa-brands fa-google-drive me-1"></i> Drive
+                         </a>
+                       </div>`
+                    : `<span class="text-muted small">Tanpa Foto</span>`;
+                
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td class="text-center fw-bold text-secondary">${index + 1}</td>
+                    <td>
+                        <div class="fw-bold text-dark"><i class="fa-regular fa-calendar me-1 text-primary"></i> ${formattedDate}</div>
+                        <div class="small text-muted"><i class="fa-regular fa-clock me-1"></i> ${escapeHtml(item.jam)} WIB</div>
+                        <div class="small text-muted"><i class="fa-solid fa-location-dot me-1"></i> ${escapeHtml(item.lokasi)}</div>
+                    </td>
+                    <td>
+                        <div class="text-dark fw-medium">${escapeHtml(item.kronologi)}</div>
+                        <div class="small text-danger mt-1"><strong>Penyebab:</strong> ${escapeHtml(item.dugaanPenyebab)}</div>
+                    </td>
+                    <td>
+                        <span class="badge badge-status ${badgeClass} mb-1">${escapeHtml(item.kondisiKorban)}</span>
+                        <div class="small"><strong>Korban:</strong> ${escapeHtml(item.namaKorban)}</div>
+                        <div class="small text-muted"><strong>Luka:</strong> ${escapeHtml(item.deskripsiLuka)}</div>
+                    </td>
+                    <td>
+                        <div class="small">${escapeHtml(item.kerusakanProperti)}</div>
+                        <div class="fw-bold text-danger mt-1">Rp ${(item.kerugianRp || 0).toLocaleString('id-ID')}</div>
+                    </td>
+                    <td>
+                        <div class="small text-muted">${escapeHtml(item.tindakLanjut)}</div>
+                    </td>
+                    <td class="text-center">${imgDisplay}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+            document.getElementById("totalKerugian").innerText = "Rp " + totalKerugian.toLocaleString('id-ID');
+        }
+
+        function getPeriodeText() {
+            const b = document.getElementById("filterBulan");
+            const t = document.getElementById("filterTahun");
+            const txtBulan = b.options[b.selectedIndex].text;
+            const txtTahun = t.options[t.selectedIndex].text;
+            return `PERIODE: ${txtBulan.toUpperCase()} / ${txtTahun.toUpperCase()}`;
+        }
+
+        function exportToExcel() {
+            if (filteredDataGlobal.length === 0) return alert("Tidak ada data untuk diekspor!");
+            
+            const periodeInfo = getPeriodeText();
+            const excelRows = [
+                ["LAPORAN REKAPITULASI INSIDEN K3"],
+                [periodeInfo],
+                [],
+                ["No", "Tanggal", "Jam", "Lokasi", "Cuaca", "Kronologi", "Dugaan Penyebab", "Kategori Korban", "Nama Korban", "Deskripsi Luka", "Kerusakan Fasilitas/Alat", "Kerugian (Rp)", "Tindak Lanjut", "Link Drive Foto"]
+            ];
+            filteredDataGlobal.forEach((item, index) => {
+                excelRows.push([
+                    index + 1,
+                    item.tanggal,
+                    item.jam,
+                    item.lokasi,
+                    item.cuaca,
+                    item.kronologi,
+                    item.dugaanPenyebab,
+                    item.kondisiKorban,
+                    item.namaKorban,
+                    item.deskripsiLuka,
+                    item.kerusakanProperti,
+                    item.kerugianRp,
+                    item.tindakLanjut,
+                    item.driveViewLink || "-"
+                ]);
+            });
+            const ws = XLSX.utils.aoa_to_sheet(excelRows);
+            ws['!cols'] = [
+                {wch: 5},  {wch: 12}, {wch: 8},  {wch: 15}, {wch: 10},
+                {wch: 30}, {wch: 25}, {wch: 15}, {wch: 15}, {wch: 20},
+                {wch: 25}, {wch: 15}, {wch: 30}, {wch: 35}
+            ];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Rekap_K3");
+            XLSX.writeFile(wb, `Rekap_Insiden_K3_${Date.now()}.xlsx`);
+        }
+
+        function exportToPDF() {
+            if (filteredDataGlobal.length === 0) return alert("Tidak ada data untuk diekspor!");
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('landscape');
+            
+            const periodeInfo = getPeriodeText();
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.text("LAPORAN REKAPITULASI INSIDEN K3", 14, 15);
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(periodeInfo, 14, 21);
+            const tableRows = filteredDataGlobal.map((item, index) => [
+                index + 1,
+                `${item.tanggal} (${item.jam})\n${item.lokasi}`,
+                `${item.kronologi}\n[Penyebab: ${item.dugaanPenyebab}]`,
+                `[${item.kondisiKorban}] ${item.namaKorban}\n${item.deskripsiLuka}`,
+                `${item.kerusakanProperti}\nRp ${(item.kerugianRp || 0).toLocaleString('id-ID')}`,
+                item.tindakLanjut
+            ]);
+            doc.autoTable({
+                head: [['No', 'Waktu & Tempat', 'Kronologi & Penyebab', 'Detail Korban', 'Properti & Kerugian', 'Penanganan']],
+                body: tableRows,
+                startY: 26,
+                styles: { fontSize: 8, cellPadding: 3 },
+                headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' }
+            });
+            doc.save(`Rekap_Insiden_K3_${Date.now()}.pdf`);
+        }
+
+        function clearDatabase() {
+            if (confirm("Apakah Anda yakin ingin menghapus seluruh data rekapitulasi lokal?")) {
+                localStorage.removeItem("DB_K3_DRIVE_EDITION");
+                dbK3 = [];
+                renderDatabase();
+            }
+        }
+    </script>
+</body>
+</html>
